@@ -223,6 +223,14 @@ static void _go_gtk_tree_selection_set_select_function(GtkTreeSelection *sel, vo
   gtk_tree_selection_set_select_function(sel, _c_gtk_tree_selection_select_func, payload, NULL);
 }
 
+static void _gtk_container_child_set_bool(GtkContainer* container, GtkWidget* child, const gchar* propname, gboolean value) {
+	gtk_container_child_set(container, child, propname, value, NULL);
+}
+
+static void _gtk_container_child_set_int(GtkContainer* container, GtkWidget* child, const gchar* propname, gint value) {
+	gtk_container_child_set(container, child, propname, value, NULL);
+}
+
 static inline GType* make_gtypes(int count) {
 	return g_new0(GType, count);
 }
@@ -773,6 +781,7 @@ static inline GtkDialog* toGDialog(GtkWidget* w) { return GTK_DIALOG(w); }
 static inline GtkAboutDialog* toGAboutDialog(GtkWidget* w) { return GTK_ABOUT_DIALOG(w); }
 static inline GtkContainer* toGContainer(GtkWidget* w) { return GTK_CONTAINER(w); }
 static inline GtkFileChooser* toGFileChooser(GtkWidget* w) { return GTK_FILE_CHOOSER(w); }
+static inline GtkFontSelection* toGFontSelection(GtkWidget* w) { return GTK_FONT_SELECTION(w); }
 static inline GtkFontSelectionDialog* toGFontSelectionDialog(GtkWidget* w) { return GTK_FONT_SELECTION_DIALOG(w); }
 static inline GtkMisc* toGMisc(GtkWidget* w) { return GTK_MISC(w); }
 static inline GtkLabel* toGLabel(GtkWidget* w) { return GTK_LABEL(w); }

@@ -153,6 +153,7 @@ func ACTION_GROUP(p *ActionGroup) *C.GtkActionGroup        { return C.toGActionG
 func ACTIVATABLE(p *Activatable) *C.GtkActivatable         { return C.toGActivatable(p.GWidget) }
 func AS_GWIDGET(p unsafe.Pointer) *C.GtkWidget             { return C.toGWidget(p) }
 func UI_MANAGER(p *UIManager) *C.GtkUIManager              { return C.toGUIManager(p.Object) }
+func FONT_SELECTION(p *FontSelection) *C.GtkFontSelection  { return C.toGFontSelection(p.GWidget) }
 
 //static inline GtkFileFilter* toGFileFilter(gpointer p) { return GTK_FILE_FILTER(p); }
 
@@ -744,10 +745,16 @@ func StockListIDs() *glib.SList {
 // gtk_rc_add_class_style
 
 func RCParse(file string) {
-	C.gtk_rc_parse((*C.gchar)(C.CString(file)))
+	ptr := C.CString(file)
+	defer cfree(ptr)
+	C.gtk_rc_parse((*C.gchar)(ptr))
 }
 
-// gtk_rc_parse_string
+func RCParseString(style string) {
+	ptr := C.CString(style)
+	defer cfree(ptr)
+	C.gtk_rc_parse_string((*C.gchar)(ptr))
+}
 
 func RCReparseAll() bool {
 	return gobool(C.gtk_rc_reparse_all())
@@ -1118,6 +1125,10 @@ func (v *Dialog) Run() ResponseType {
 }
 
 func (v *Dialog) Response(response interface{}, datas ...interface{}) {
+	if id, ok := response.(ResponseType); ok {
+		C.gtk_dialog_response(DIALOG(v), gint(int(id)))
+		return
+	}
 	v.Connect("response", response, datas...)
 }
 
@@ -1283,7 +1294,13 @@ func (v *Window) SetTitle(title string) {
 	C.gtk_window_set_title(WINDOW(v), gstring(ptr))
 }
 
-// gtk_window_set_wmclass
+func (v *Window) SetWMClass(name string, class string) {
+	ptr1 := C.CString(name)
+	defer cfree(ptr1)
+	ptr2 := C.CString(class)
+	defer cfree(ptr2)
+	C.gtk_window_set_wmclass(WINDOW(v), gstring(ptr1), gstring(ptr2))
+}
 
 func (v *Window) SetResizable(resizable bool) {
 	C.gtk_window_set_resizable(WINDOW(v), gbool(resizable))
@@ -1293,13 +1310,21 @@ func (v *Window) GetResizable() bool {
 	return gobool(C.gtk_window_get_resizable(WINDOW(v)))
 }
 
-func (v *Window) AddAccelGroup(group *AccelGroup) {
-	C.gtk_window_add_accel_group(WINDOW(v), group.GAccelGroup)
+func (v *Window) AddAccelGroup(agroup *AccelGroup) {
+	C.gtk_window_add_accel_group(WINDOW(v), agroup.GAccelGroup)
 }
 
-// gtk_window_remove_accel_group
-// gtk_window_activate_focus
-// gtk_window_activate_default
+func (v *Window) RemoveAccelGroup(agroup *AccelGroup) {
+	C.gtk_window_remove_accel_group(WINDOW(v), agroup.GAccelGroup)
+}
+
+func (v *Window) ActivateFocus() bool {
+	return gobool(C.gtk_window_activate_focus(WINDOW(v)))
+}
+
+func (v *Window) ActivateDefault() bool {
+	return gobool(C.gtk_window_activate_default(WINDOW(v)))
+}
 
 func (v *Window) SetModal(modal bool) {
 	C.gtk_window_set_modal(WINDOW(v), gbool(modal))
@@ -1528,9 +1553,18 @@ func (v *Window) SetIconName(name string) {
 	C.gtk_window_set_icon_name(WINDOW(v), gstring(ptr))
 }
 
-// gtk_window_set_auto_startup_notification
-// gtk_window_get_opacity
-// gtk_window_set_opacity
+func (v *Window) SetAutoStartupNotification(setting bool) {
+	C.gtk_window_set_auto_startup_notification(gbool(setting))
+}
+
+func (v *Window) GetOpacity() float64 {
+	return float64(C.gtk_window_get_opacity(WINDOW(v)))
+}
+
+func (v *Window) SetOpacity(opacity float64) {
+	C.gtk_window_set_opacity(WINDOW(v), gdouble(opacity))
+}
+
 // gtk_window_get_mnemonics_visible //since 2.20
 // gtk_window_set_mnemonics_visible //since 2.20
 
@@ -2276,7 +2310,9 @@ func (v *ProgressBar) SetOrientation(i ProgressBarOrientation) {
 	C.gtk_progress_bar_set_orientation(PROGRESS_BAR(v), C.GtkProgressBarOrientation(i))
 }
 
-// gtk_progress_bar_set_ellipsize
+func (v *ProgressBar) SetEllipsize(ellipsize pango.EllipsizeMode) {
+	C.gtk_progress_bar_set_ellipsize(PROGRESS_BAR(v), C.PangoEllipsizeMode(ellipsize))
+}
 
 func (v *ProgressBar) GetText() string {
 	return gostring(C.gtk_progress_bar_get_text(PROGRESS_BAR(v)))
@@ -2296,7 +2332,9 @@ func (v *ProgressBar) GetOrientation() ProgressBarOrientation {
 	return ProgressBarOrientation(C.gtk_progress_bar_get_orientation(PROGRESS_BAR(v)))
 }
 
-// gtk_progress_bar_get_ellipsize
+func (v *ProgressBar) GetEllipsize() pango.EllipsizeMode {
+	return pango.EllipsizeMode(C.gtk_progress_bar_get_ellipsize(PROGRESS_BAR(v)))
+}
 
 //-----------------------------------------------------------------------
 // GtkStatusbar
@@ -2751,9 +2789,17 @@ func (v *Button) GetImage() *Image {
 	return &Image{Misc{Widget{C.gtk_button_get_image(BUTTON(v))}}}
 }
 
-// gtk_button_set_image_position
-// gtk_button_get_image_position
-// gtk_button_get_event_window
+func (v *Button) SetImagePosition(pos PositionType) {
+	C.gtk_button_set_image_position(BUTTON(v), C.GtkPositionType(pos))
+}
+
+func (v *Button) GetImagePosition() PositionType {
+	return PositionType(C.gtk_button_get_image_position(BUTTON(v)))
+}
+
+func (v *Button) GetEventWindow() *gdk.Window {
+	return gdk.WindowFromUnsafe(unsafe.Pointer(C.gtk_button_get_event_window(BUTTON(v))))
+}
 
 //-----------------------------------------------------------------------
 // GtkCheckButton
@@ -4831,7 +4877,6 @@ func NewTreeViewColumnWithAttributes(title string, cell ICellRenderer, attribute
 		if !ok {
 			log.Panic("Error calling gtk.TreeViewColumnWithAttributes: attributes column must be an int")
 		}
-		println(attribute, column)
 		C.gtk_tree_view_column_add_attribute(ret.GTreeViewColumn,
 			cell.ToCellRenderer(), gstring(ptrAttribute), gint(column))
 	}
@@ -5042,7 +5087,6 @@ func (v *TreeView) AppendColumn(c *TreeViewColumn) int {
 	return int(C.gtk_tree_view_append_column(TREE_VIEW(v), c.GTreeViewColumn))
 }
 
-//gint gtk_tree_view_remove_column (GtkTreeView *tree_view, GtkTreeViewColumn *column);
 //gint gtk_tree_view_insert_column (GtkTreeView *tree_view, GtkTreeViewColumn *column, gint position);
 //gint gtk_tree_view_insert_column_with_attributes (GtkTreeView *tree_view, gint position, const gchar *title, GtkCellRenderer *cell, ...) G_GNUC_NULL_TERMINATED;
 //gint gtk_tree_view_insert_column_with_data_func (GtkTreeView *tree_view, gint position, const gchar *title, GtkCellRenderer *cell, GtkTreeCellDataFunc func, gpointer data, GDestroyNotify dnotify);
@@ -5058,6 +5102,11 @@ func (v *TreeView) GetColumns() []*TreeViewColumn {
 		columns = append(columns, newTreeViewColumn((*C.GtkTreeViewColumn)(unsafe.Pointer(uintptr(p)))))
 	})
 	return columns
+}
+
+// Remove column from TreeView and return number of existing columns
+func (v *TreeView) RemoveColumn(c *TreeViewColumn) int {
+	return int(C.gtk_tree_view_remove_column(TREE_VIEW(v), c.GTreeViewColumn))
 }
 
 //void gtk_tree_view_move_column_after (GtkTreeView *tree_view, GtkTreeViewColumn *column, GtkTreeViewColumn *base_column);
@@ -6312,8 +6361,18 @@ func (v *MenuItem) GetRightJustified() bool {
 	return gobool(C.gtk_menu_item_get_right_justified(MENU_ITEM(v)))
 }
 
-// G_CONST_RETURN gchar *gtk_menu_item_get_label(GtkMenuItem *menu_item);
-// void gtk_menu_item_set_label(GtkMenuItem *menu_item, const gchar *label);
+func (v *MenuItem) GetLabel() string {
+	return gostring(C.gtk_menu_item_get_label(MENU_ITEM(v)))
+}
+
+func (v *MenuItem) SetLabel(label string) {
+	var ptr *C.char
+	if len(label) > 0 {
+		ptr = C.CString(label)
+		defer cfree(ptr)
+	}
+	C.gtk_menu_item_set_label(MENU_ITEM(v), gstring(ptr))
+}
 
 func (v *MenuItem) GetUseUnderline() bool {
 	return gobool(C.gtk_menu_item_get_use_underline(MENU_ITEM(v)))
@@ -8144,8 +8203,13 @@ func (v *FontButton) GetFontName() string {
 	return gostring(C.gtk_font_button_get_font_name(FONT_BUTTON(v)))
 }
 
-// gtk_font_button_set_show_style
-// gtk_font_button_get_show_style
+func (v *FontButton) SetShowStyle(show bool) {
+	C.gtk_font_button_set_show_style(FONT_BUTTON(v), gbool(show))
+}
+
+func (v *FontButton) GetShowStyle() bool {
+	return gobool(C.gtk_font_button_get_show_style(FONT_BUTTON(v)))
+}
 
 func (v *FontButton) SetShowSize(show_size bool) {
 	C.gtk_font_button_set_show_size(FONT_BUTTON(v), gbool(show_size))
@@ -8155,8 +8219,13 @@ func (v *FontButton) GetShowSize() bool {
 	return gobool(C.gtk_font_button_get_show_size(FONT_BUTTON(v)))
 }
 
-// gtk_font_button_set_use_font
-// gtk_font_button_get_use_font
+func (v *FontButton) SetUseFont(use bool) {
+	C.gtk_font_button_set_use_font(FONT_BUTTON(v), gbool(use))
+}
+
+func (v *FontButton) GetUseFont() bool {
+	return gobool(C.gtk_font_button_get_use_font(FONT_BUTTON(v)))
+}
 
 func (v *FontButton) SetUseSize(use_size bool) {
 	C.gtk_font_button_set_use_size(FONT_BUTTON(v), gbool(use_size))
@@ -8179,11 +8248,28 @@ func (v *FontButton) GetTitle() string {
 //-----------------------------------------------------------------------
 // GtkFontSelection
 //-----------------------------------------------------------------------
+type FontSelection struct {
+	VBox
+}
 
-// gtk_font_selection_new
-// gtk_font_selection_get_font
-// gtk_font_selection_get_font_name
-// gtk_font_selection_set_font_name
+func NewFontSelection() *FontSelection {
+	return &FontSelection{VBox{Box{Container{Widget{C.gtk_font_selection_new()}}}}}
+}
+
+func (v *FontSelection) GetFont() *gdk.Font {
+	return gdk.FontFromUnsafe(unsafe.Pointer(C.gtk_font_selection_get_font(FONT_SELECTION(v))))
+}
+
+func (v *FontSelection) GetFontName() string {
+	return gostring(C.gtk_font_selection_get_font_name(FONT_SELECTION(v)))
+}
+
+func (v *FontSelection) SetFontName(name string) {
+	ptr := C.CString(name)
+	defer cfree(ptr)
+	C.gtk_font_selection_set_font_name(FONT_SELECTION(v), gstring(ptr))
+}
+
 // gtk_font_selection_get_preview_text
 // gtk_font_selection_set_preview_text
 // gtk_font_selection_get_face
@@ -8219,11 +8305,28 @@ func (v *FontSelectionDialog) SetFontName(font string) {
 	C.gtk_font_selection_dialog_set_font_name(FONT_SELECTION_DIALOG(v), gstring(pfont))
 }
 
-// gtk_font_selection_dialog_get_preview_text
-// gtk_font_selection_dialog_set_preview_text
-// gtk_font_selection_dialog_get_cancel_button
-// gtk_font_selection_dialog_get_ok_button
-// gtk_font_selection_dialog_get_font_selection //since 2.22
+func (v *FontSelectionDialog) GetPreviewText() string {
+	return gostring(C.gtk_font_selection_dialog_get_preview_text(FONT_SELECTION_DIALOG(v)))
+}
+
+func (v *FontSelectionDialog) SetPreviewText(text string) {
+	ptr := C.CString(text)
+	defer cfree(ptr)
+	C.gtk_font_selection_dialog_set_preview_text(FONT_SELECTION_DIALOG(v), gstring(ptr))
+}
+
+func (v *FontSelectionDialog) GetCancelButton() *Widget {
+	return &Widget{C.gtk_font_selection_dialog_get_cancel_button(FONT_SELECTION_DIALOG(v))}
+}
+
+func (v *FontSelectionDialog) GetOkButton() *Widget {
+	return &Widget{C.gtk_font_selection_dialog_get_ok_button(FONT_SELECTION_DIALOG(v))}
+}
+
+func (v *FontSelectionDialog) GetFontSelection() *FontSelection {
+	return &FontSelection{VBox{Box{Container{Widget{
+		C.gtk_font_selection_dialog_get_font_selection(FONT_SELECTION_DIALOG(v))}}}}}
+}
 
 //-----------------------------------------------------------------------
 // GtkInputDialog
@@ -9893,17 +9996,50 @@ func (v *Container) GetChildren() *glib.List {
 	return glib.ListFromNative(unsafe.Pointer(C.gtk_container_get_children(CONTAINER(v))))
 }
 
-// gtk_container_set_reallocate_redraws
-// gtk_container_get_focus_child
-// gtk_container_set_focus_child
-// gtk_container_get_focus_vadjustment
-// gtk_container_set_focus_vadjustment
-// gtk_container_get_focus_hadjustment
-// gtk_container_set_focus_hadjustment
+func (v *Container) SetReallocateRedraws(redraws bool) {
+	C.gtk_container_set_reallocate_redraws(CONTAINER(v), gbool(redraws))
+}
+
+func (v *Container) GetFocusChild() *Widget {
+	return &Widget{C.gtk_container_get_focus_child(CONTAINER(v))}
+}
+
+func (v *Container) SetFocusChild(child *Widget) {
+	C.gtk_container_set_focus_child(CONTAINER(v), child.GWidget)
+} 
+
+func (v *Container) GetFocusVAdjustment() *Adjustment {
+	return &Adjustment{C.gtk_container_get_focus_vadjustment(CONTAINER(v))}
+}
+
+func (v *Container) SetFocusVAdjustment(adjustment *Adjustment) {
+	C.gtk_container_set_focus_vadjustment(CONTAINER(v), adjustment.GAdjustment)
+}
+
+func (v *Container) GetFocusHAdjustment() *Adjustment {
+	return &Adjustment{C.gtk_container_get_focus_hadjustment(CONTAINER(v))}
+}
+
+func (v *Container) SetFocusHAdjustment(adjustment *Adjustment) {
+	C.gtk_container_set_focus_hadjustment(CONTAINER(v), adjustment.GAdjustment)
+}
 // gtk_container_resize_children
 // gtk_container_child_type
 // gtk_container_child_get
-// gtk_container_child_set
+
+func (v *Container) ChildSet(w IWidget, propName string, value interface{}) {
+
+	ptr := C.CString(propName)
+	defer cfree(ptr)
+
+	switch value.(type) {
+	case bool:
+		C._gtk_container_child_set_bool(CONTAINER(v), ToNative(w), gstring(ptr), gbool(value.(bool)))
+	case int:
+		C._gtk_container_child_set_int(CONTAINER(v), ToNative(w), gstring(ptr), gint(value.(int)))
+	}
+}
+
 // gtk_container_child_get_property
 // gtk_container_child_set_property
 // gtk_container_child_get_valist
